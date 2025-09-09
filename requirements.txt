@@ -1,0 +1,4 @@
+seleniumbase
+psutil
+selenium_stealth
+flask
