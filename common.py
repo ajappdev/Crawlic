@@ -1,40 +1,71 @@
-import psutil
+# GENERAL IMPORTATIONS
 import requests
 from requests.auth import HTTPProxyAuth
-from seleniumbase import Driver
-from seleniumbase.config import settings
-from selenium_stealth import stealth
 import random
 import string
 import time
-from bs4 import BeautifulSoup
 import re
+import subprocess
+import os
+import signal
+import psutil
+import platform
+from decouple import Config, RepositoryEnv
+import os
+from pathlib import Path
+
+# SCRAPING IMPORTATIONS
+from seleniumbase import Driver
+from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
+# Fetching ENV Variables from .env file
+BASE_DIR = Path(__file__).resolve().parent
+DOTENV_FILE = os.path.join(BASE_DIR, '.env')
+env_config = Config(RepositoryEnv(DOTENV_FILE))
+OPENAI_ORGANIZATION_ID = env_config.get('ORGANIZATION_ID')
+OPENAI_PROJECT_ID = env_config.get('PROJECT_ID')
+OPENAI_API_KEY = env_config.get('OPENAI_API_KEY')
+DB_PASS = env_config.get('DB_PASS')
+DB_NAME = env_config.get('DB_NAME')
+DB_USER = env_config.get('DB_USER')
+DB_HOST = env_config.get('DB_HOST')
+DB_PORT = env_config.get('DB_PORT')
 
-
+# GLOBAL_VARIABLES
 PROXIES = [
 "184.174.43.150:6690:smjpoqfr:bg3x4gn8qbz5",
 "154.6.116.19:5988:smjpoqfr:bg3x4gn8qbz5",
 ]
 
-def parse_proxy(proxy_string):
-    """
-    Parses a proxy string in the format 'ip:port:username:password' and returns a dictionary
-    with the corresponding fields. Returns None if the format is incorrect.
-    """
-    parts = proxy_string.split(':')
-    if len(parts) == 4:
-        ip, port, username, password = parts
-        return {
-            'ip': ip,
-            'port': port,
-            'username': username,
-            'password': password
-        }
-    return None
+OS_MACHINE = platform.system()
 
-def kill_all_chrome_processes():
+##############################################
+##############################################
+##############################################
+# DECLARING FUNCTIONS
+##############################################
+##############################################
+##############################################
+
+##############################################
+# FUNCTIONS TO USE AFTER SCRAPING
+##############################################
+
+def quit_driver(driver):
+    # Quit the driver and release resources
+    driver.quit()
+
+    # Explicitly delete the driver object
+    del driver
+
+    # Terminate any lingering processes associated with ChromeDriver
+    if OS_MACHINE == "Windows":
+        kill_all_chrome_processes_windows()
+    elif OS_MACHINE == "Linux":
+        kill_all_chrome_processes_linux()
+
+def kill_all_chrome_processes_windows():
     """
     Aggressively kill all Chrome and ChromeDriver processes
     """
@@ -63,6 +94,47 @@ def kill_all_chrome_processes():
                     proc.kill()
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
+
+def kill_all_chrome_processes_linux():
+    """
+    Kill all running Chrome/Chromedriver related processes in the container.
+    Useful for cleaning up after Selenium scraping sessions to prevent zombie
+    accumulation.
+    """
+    try:
+        # Get all running processes
+        result = subprocess.run(
+            ["ps", "aux"], capture_output=True, text=True
+        )
+        
+        for line in result.stdout.splitlines():
+            if any(proc in line.lower() for proc in ["chrome", "chromedriver"]):
+                parts = line.split()
+                pid = int(parts[1])  # PID is the second column
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                    print(f"🔪 Killed process {pid}: {line}")
+                except Exception as e:
+                    print(f"⚠️ Could not kill process {pid}: {e}")
+    except Exception as e:
+        print(f"❌ Error while killing chrome processes: {e}")
+
+# FUNCTIONS TO USE WHEN SCRAPING BEHIND A PROXY
+def parse_proxy(proxy_string):
+    """
+    Parses a proxy string in the format 'ip:port:username:password' and returns a dictionary
+    with the corresponding fields. Returns None if the format is incorrect.
+    """
+    parts = proxy_string.split(':')
+    if len(parts) == 4:
+        ip, port, username, password = parts
+        return {
+            'ip': ip,
+            'port': port,
+            'username': username,
+            'password': password
+        }
+    return None
 
 def find_working_proxy():
     """
@@ -99,24 +171,23 @@ def test_proxy(proxy):
         print(f"Proxy {proxy} failed: {e}")
     return False
 
-def quit_driver(driver):
-    # Quit the driver and release resources
-    driver.quit()
 
-    # Explicitly delete the driver object
-    del driver
+##############################################
+# FUNCTIONS TO USE WHILE SCRAPING
+##############################################
 
-    # Terminate any lingering processes associated with ChromeDriver
-    kill_all_chrome_processes()
-
-def initiate_driver(proxy: bool, headless: bool, incognito: bool):
+def initiate_driver(proxy: bool, headless: bool, incognito: bool, disable_cookies: bool):
     """
     Initializes and returns a SeleniumBase Chrome driver. Optionally uses a working proxy and headless mode.
     Kills any existing Chrome or chromedriver processes before starting.
     """
-    kill_all_chrome_processes()
+    if OS_MACHINE == "Windows":
+        kill_all_chrome_processes_windows()
+    elif OS_MACHINE == "Linux":
+        kill_all_chrome_processes_linux()
     
-    time.sleep(5)
+    # time.sleep(5)
+    pass
 
     print("launching the driver")
     if proxy:
@@ -137,7 +208,7 @@ def initiate_driver(proxy: bool, headless: bool, incognito: bool):
             agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.5615.138 Safari/537.36 AVG/112.0.21002.139",
             do_not_track=True,
             undetectable=True,
-            disable_cookies=True,
+            disable_cookies=disable_cookies,
             no_sandbox=True,  # Equivalent to adding "--no-sandbox"
             disable_gpu=True,  # Equivalent to adding "--disable-gpu"
             proxy=proxy  # Add the proxy here
@@ -149,7 +220,7 @@ def initiate_driver(proxy: bool, headless: bool, incognito: bool):
             uc=True,
             headless2=headless,
             incognito=incognito,
-            disable_cookies=True,
+            disable_cookies=disable_cookies,
             agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.5615.138 Safari/537.36 AVG/112.0.21002.139",
             do_not_track=True,
             undetectable=True,
@@ -159,15 +230,6 @@ def initiate_driver(proxy: bool, headless: bool, incognito: bool):
         
     driver.set_window_size(1920, 1080)
     return driver
-
-def random_string(length):
-    """
-    Generates a random string of the specified length containing both letters and numbers.
-    :param length: Length of the random string to generate
-    :return: Random alphanumeric string
-    """
-    chars = string.ascii_letters + string.digits
-    return ''.join(random.choices(chars, k=length))
 
 def find_contact_email(url):
     """
@@ -179,7 +241,7 @@ def find_contact_email(url):
     Returns:
         list: List of email addresses found, or empty list if none found
     """
-    driver = initiate_driver(False, True, True)
+    driver = initiate_driver(False, True, True, False)
     
     try:
         # Start with the main page
@@ -381,11 +443,18 @@ def get_primary_contact_email(url):
     emails = find_contact_email(url)
     return emails[0] if emails else None
 
-
 def get_source_content(url):
+    """
+    Scrapes and cleans content from a webpage, preserving links and structure.
     
+    Args:
+        url: The URL to scrape
+        
+    Returns:
+        Cleaned HTML string with minimal formatting
+    """
     # Load the URL with Selenium
-    driver = initiate_driver(False, True, True)
+    driver = initiate_driver(False, False, False, False)
     driver.get(url)
     time.sleep(10)
 
@@ -403,6 +472,7 @@ def get_source_content(url):
     ]
     
     # Try to find the main content
+    main_content = None
     for selector in main_selectors:
         if 'class' in selector:
             main_content = soup.find(selector['tag'], class_=selector['class'])
@@ -410,323 +480,118 @@ def get_source_content(url):
             main_content = soup.find(selector['tag'])
         
         if main_content:
-            # Clean up unwanted sections within the main content
-            for unwanted in main_content.find_all(['nav', 'aside', 'footer', 'header', 'script', 'style', 'img']):
-                unwanted.decompose()
-            return main_content.get_text(strip=True)
-    
-    # Fallback: Longest text block if no main content tag is found
-    text_blocks = [el.get_text(strip=True) for el in soup.find_all('div')]
-    main_content = max(text_blocks, key=len, default="")
-    quit_driver(driver)
-    return main_content
-
-def get_google_news_links(keyword, max_results=20):
-    """
-    Searches Google News for a keyword and returns top links.
-    
-    Args:
-        keyword (str): The search keyword/phrase
-        max_results (int): Maximum number of results to return (default: 20)
-        
-    Returns:
-        list: List of dictionaries containing news article information
-              Each dict has: {'title': str, 'url': str, 'source': str, 'published': str}
-    """
-    driver = initiate_driver(False, True, True)
-    
-    try:
-        # Encode the search keyword for URL
-        encoded_keyword = urllib.parse.quote_plus(keyword)
-        
-        # Google News search URL
-        google_news_url = f"https://news.google.com/search?q={encoded_keyword}"
-        
-        print(f"Searching Google News for: {keyword}")
-        driver.get(google_news_url)
-        time.sleep(10)  # Wait for page to load
-        
-        # Sometimes Google shows a consent dialog, try to handle it
-        try:
-            # Look for and click "Accept all" or "I agree" buttons
-            consent_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Accept') or contains(text(), 'agree') or contains(text(), 'Accept all')]")
-            if consent_buttons:
-                consent_buttons[0].click()
-                time.sleep(2)
-        except:
-            pass  # Continue if no consent dialog
-        
-        # Scroll down to load more articles
-        scroll_and_load_more(driver, max_results)
-        
-        # Parse the page source
-        page_source = driver.page_source
-        soup = BeautifulSoup(page_source, 'html.parser')
-        
-        # Extract news articles
-        articles = extract_news_articles(soup, max_results)
-        
-        print(f"Found {len(articles)} news articles")
-        return articles
-        
-    except Exception as e:
-        print(f"Error searching Google News: {e}")
-        return []
-    
-    finally:
-        quit_driver(driver)
-
-def scroll_and_load_more(driver, target_results):
-    """
-    Scrolls down the page to load more news articles.
-    
-    Args:
-        driver: Selenium WebDriver instance
-        target_results (int): Target number of results to load
-    """
-    try:
-        last_height = driver.execute_script("return document.body.scrollHeight")
-        articles_loaded = 0
-        scroll_attempts = 0
-        max_scroll_attempts = 10
-        
-        while articles_loaded < target_results and scroll_attempts < max_scroll_attempts:
-            # Scroll down to the bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)
-            
-            # Check if new content loaded
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            
-            # Count current articles
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-            current_articles = count_articles(soup)
-            
-            if current_articles >= target_results or new_height == last_height:
-                break
-                
-            last_height = new_height
-            articles_loaded = current_articles
-            scroll_attempts += 1
-            
-    except Exception as e:
-        print(f"Error during scrolling: {e}")
-
-def count_articles(soup):
-    """
-    Counts the number of articles currently loaded on the page.
-    
-    Args:
-        soup: BeautifulSoup object of the page
-        
-    Returns:
-        int: Number of articles found
-    """
-    # Google News article selectors (these may change over time)
-    selectors = [
-        'article[jslog]',
-        'article[data-n-tid]',
-        'div[data-n-tid]',
-        '.JtKRv',  # Common Google News article class
-        '.xrnccd'  # Another common class
-    ]
-    
-    for selector in selectors:
-        articles = soup.select(selector)
-        if articles:
-            return len(articles)
-    
-    return 0
-
-def extract_news_articles(soup, max_results):
-    """
-    Extracts news article information from the parsed HTML.
-    
-    Args:
-        soup: BeautifulSoup object of the Google News page
-        max_results (int): Maximum number of articles to extract
-        
-    Returns:
-        list: List of article dictionaries
-    """
-    articles = []
-    
-    # Multiple selectors to try (Google frequently changes their HTML structure)
-    article_selectors = [
-        'article[jslog]',
-        'article[data-n-tid]', 
-        'div[data-n-tid]',
-        '.JtKRv',
-        '.xrnccd',
-        'article'
-    ]
-    
-    found_articles = []
-    
-    # Try different selectors until we find articles
-    for selector in article_selectors:
-        found_articles = soup.select(selector)
-        if found_articles and len(found_articles) > 5:  # Make sure we found a good set
             break
     
-    if not found_articles:
-        print("Could not find articles with known selectors, trying alternative approach...")
-        # Fallback: look for links that seem like news articles
-        return extract_articles_fallback(soup, max_results)
+    # Fallback: Find the div with the most text content
+    if not main_content:
+        text_blocks = [(el, len(el.get_text(strip=True))) for el in soup.find_all('div')]
+        if text_blocks:
+            main_content = max(text_blocks, key=lambda x: x[1])[0]
     
-    print(f"Found {len(found_articles)} article elements using selector")
-    
-    for i, article_elem in enumerate(found_articles[:max_results]):
-        try:
-            article_info = parse_article_element(article_elem)
-            if article_info and article_info['url']:
-                articles.append(article_info)
-                
-        except Exception as e:
-            print(f"Error parsing article {i}: {e}")
-            continue
-    
-    return articles
+    # Clean up the content
+    if main_content:
+        # Remove scripts and styles (always unwanted)
+        for unwanted in main_content.find_all(['script', 'style']):
+            unwanted.decompose()
 
-def parse_article_element(article_elem):
-    """
-    Parses a single article element to extract information.
-    
-    Args:
-        article_elem: BeautifulSoup element representing an article
+        # Remove visual elements but keep their parent containers
+        for unwanted in main_content.find_all(['img', 'svg', 'iframe']):
+            unwanted.decompose()
+
+        # Only remove structural elements if they don't contain links
+        for unwanted in main_content.find_all(['nav', 'aside', 'footer', 'header']):
+            if len(unwanted.find_all('a')) == 0:
+                unwanted.decompose()
+
+        # Remove HTML comments
+        from bs4 import Comment
+        for comment in main_content.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
         
-    Returns:
-        dict: Article information or None if parsing failed
-    """
-    try:
-        # Find the main link
-        link_elem = article_elem.find('a')
-        if not link_elem:
-            return None
-        
-        # Extract title
-        title = ""
-        title_selectors = ['h3', 'h4', '[role="heading"]', '.JtKRv h3', '.JtKRv h4']
-        for selector in title_selectors:
-            title_elem = article_elem.select_one(selector)
-            if title_elem:
-                title = title_elem.get_text().strip()
-                break
-        
-        if not title:
-            title = link_elem.get_text().strip()
-        
-        # Extract URL (Google News URLs are usually redirects)
-        url = link_elem.get('href', '')
-        if url.startswith('./'):
-            url = 'https://news.google.com' + url[1:]
-        elif url.startswith('/'):
-            url = 'https://news.google.com' + url
-        
-        # Extract source
-        source = ""
-        source_selectors = ['.wEwyrc', '.vr1PYe', '.CEMjEf']
-        for selector in source_selectors:
-            source_elem = article_elem.select_one(selector)
-            if source_elem:
-                source = source_elem.get_text().strip()
-                break
-        
-        # Extract published time
-        published = ""
-        time_selectors = ['time', '.WW6dff', '.r0bn4c']
-        for selector in time_selectors:
-            time_elem = article_elem.select_one(selector)
-            if time_elem:
-                published = time_elem.get_text().strip()
-                break
-        
-        return {
-            'title': title,
-            'url': url,
-            'source': source,
-            'published': published
+        # Define allowed HTML tags
+        allowed_tags = {
+            'p', 'ul', 'ol', 'li', 'div', 'span', 'a', 'button',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'strong', 'em', 'blockquote', 'pre', 'code'
         }
         
-    except Exception as e:
-        print(f"Error parsing article element: {e}")
-        return None
-
-def extract_articles_fallback(soup, max_results):
-    """
-    Fallback method to extract articles when main selectors fail.
-    
-    Args:
-        soup: BeautifulSoup object
-        max_results (int): Maximum number of results
+        # Remove attributes from the main_content tag itself
+        main_content.attrs = {}
         
-    Returns:
-        list: List of article dictionaries
-    """
-    articles = []
-    
-    # Look for all links that might be news articles
-    links = soup.find_all('a', href=True)
-    
-    for link in links[:max_results * 3]:  # Check more links to filter out non-articles
-        try:
-            href = link.get('href', '')
-            text = link.get_text().strip()
-            
-            # Filter out non-article links
-            if (len(text) > 20 and  # Reasonable title length
-                not href.startswith('#') and  # Not anchor links
-                not 'google.com/search' in href and  # Not search links
-                text.lower() not in ['more', 'next', 'previous', 'home']):  # Not navigation
-                
-                if href.startswith('./'):
-                    href = 'https://news.google.com' + href[1:]
-                elif href.startswith('/'):
-                    href = 'https://news.google.com' + href
-                
-                articles.append({
-                    'title': text,
-                    'url': href,
-                    'source': '',
-                    'published': ''
-                })
-                
-                if len(articles) >= max_results:
-                    break
-                    
-        except Exception:
-            continue
-    
-    return articles
-
-def get_google_news_urls_only(keyword, max_results=20):
-    """
-    Simplified function that returns only URLs from Google News search.
-    
-    Args:
-        keyword (str): Search keyword
-        max_results (int): Maximum number of URLs to return
+        # Clean tags: unwrap non-allowed tags and strip attributes from allowed tags
+        for tag in main_content.find_all(True):
+            if tag.name not in allowed_tags:
+                tag.unwrap()
+            else:
+                # Keep only href and id attributes
+                allowed_attrs = {}
+                if "href" in tag.attrs:
+                    allowed_attrs["href"] = tag["href"]
+                if "id" in tag.attrs:
+                    allowed_attrs["id"] = tag["id"]
+                tag.attrs = allowed_attrs
         
-    Returns:
-        list: List of URLs
-    """
-    articles = get_google_news_links(keyword, max_results)
-    return [article['url'] for article in articles if article['url']]
+        # Simplify redundant nested divs/spans
+        simplify_nested_tags(main_content)
+        
+        # Remove empty tags
+        remove_empty_tags(main_content)
+        
+        # Convert to string and clean up whitespace
+        result = str(main_content)
+        result = result.replace('\n', '')
+        
+        # Remove excessive spaces
+        import re
+        result = re.sub(r'\s+', ' ', result)
+        result = re.sub(r'>\s+<', '><', result)
+        result = result.strip()
+    else:
+        result = ""
+    
+    quit_driver(driver)
+    return result
 
-def print_news_results(articles):
+def simplify_nested_tags(element):
     """
-    Pretty prints the news search results.
-    
-    Args:
-        articles (list): List of article dictionaries
+    Remove redundant nested divs/spans that don't add structural value.
+    Only removes tags with a single child of the same type and no direct text.
     """
-    print(f"\n=== Found {len(articles)} News Articles ===\n")
-    
-    for i, article in enumerate(articles, 1):
-        print(f"{i}. {article['title']}")
-        if article['source']:
-            print(f"   Source: {article['source']}")
-        if article['published']:
-            print(f"   Published: {article['published']}")
-        print(f"   URL: {article['url']}")
-        print("-" * 80)
+    changed = True
+    while changed:
+        changed = False
+        for tag in element.find_all(True):
+            if tag.name in ['div', 'span']:
+                children_tags = [c for c in tag.children if hasattr(c, 'name')]
+                direct_text = ''.join([str(c) for c in tag.children if isinstance(c, str)]).strip()
+                
+                # Only unwrap if there's exactly one child of the same type and no direct text
+                if len(children_tags) == 1 and children_tags[0].name == tag.name and not direct_text:
+                    tag.unwrap()
+                    changed = True
+
+def remove_empty_tags(element):
+    """
+    Remove tags that contain no text content.
+    Runs multiple times to catch nested empty tags.
+    """
+    changed = True
+    while changed:
+        changed = False
+        for tag in element.find_all(True):
+            if not tag.get_text(strip=True):
+                tag.decompose()
+                changed = True
+
+##############################################
+# GENERAL FUNCTIONS
+##############################################
+
+def random_string(length):
+    """
+    Generates a random string of the specified length containing both letters and numbers.
+    :param length: Length of the random string to generate
+    :return: Random alphanumeric string
+    """
+    chars = string.ascii_letters + string.digits
+    return ''.join(random.choices(chars, k=length))
