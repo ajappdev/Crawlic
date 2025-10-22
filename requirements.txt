@@ -1,4 +1,10 @@
-seleniumbase
-psutil
-selenium_stealth
 flask
+flask_sqlalchemy
+flask_swagger_ui
+requests
+psutil
+python-decouple
+seleniumbase
+openai
+psycopg2-binary
+gunicorn

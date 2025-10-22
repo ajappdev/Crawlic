@@ -45,7 +45,7 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 RUN python3 -m pip install --upgrade pip
 
 # Install SeleniumBase and related packages
-RUN pip3 install seleniumbase selenium webdriver-manager
+RUN pip3 install psycopg2-binary seleniumbase selenium webdriver-manager
 
 # Install ChromeDriver using SeleniumBase
 RUN seleniumbase install chromedriver

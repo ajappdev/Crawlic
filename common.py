@@ -26,11 +26,11 @@ env_config = Config(RepositoryEnv(DOTENV_FILE))
 OPENAI_ORGANIZATION_ID = env_config.get('ORGANIZATION_ID')
 OPENAI_PROJECT_ID = env_config.get('PROJECT_ID')
 OPENAI_API_KEY = env_config.get('OPENAI_API_KEY')
-DB_PASS = env_config.get('DB_PASS')
-DB_NAME = env_config.get('DB_NAME')
-DB_USER = env_config.get('DB_USER')
-DB_HOST = env_config.get('DB_HOST')
-DB_PORT = env_config.get('DB_PORT')
+POSTGRES_PASSWORD = env_config.get('POSTGRES_PASSWORD')
+POSTGRES_DB = env_config.get('POSTGRES_DB')
+POSTGRES_USER = env_config.get('POSTGRES_USER')
+POSTGRES_HOST = env_config.get('POSTGRES_HOST')
+POSTGRES_PORT = env_config.get('POSTGRES_PORT')
 
 # GLOBAL_VARIABLES
 PROXIES = [

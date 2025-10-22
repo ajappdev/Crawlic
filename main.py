@@ -4,6 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import secrets
 from functools import wraps
+from flask_swagger_ui import get_swaggerui_blueprint
+from urllib.parse import quote_plus
 
 # App imports
 import common as common
@@ -13,12 +15,31 @@ import ai as ai
 app = Flask(__name__)
 
 ########################################
+# Swagger UI Configuration
+########################################
+SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
+API_URL = '/static/swagger.json'  # Our API url (can be a local file or URL)
+
+# Call factory function to create our blueprint
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "Web Scraping API"
+    }
+)
+
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+########################################
 # Initialize the database
 ########################################
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://username:password@localhost:5432/yourdb'
+
+encoded_password = quote_plus(common.POSTGRES_PASSWORD)
+print(encoded_password)
+app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{common.POSTGRES_USER}:{encoded_password}@{common.POSTGRES_HOST}:{common.POSTGRES_PORT}/{common.POSTGRES_DB}"      
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{common.DB_USER}:{common.DB_PASS}@{common.DB_HOST}:{common.DB_PORT}/{common.DB_NAME}"      
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 
 class Client(db.Model):
