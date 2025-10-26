@@ -36,7 +36,6 @@ app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 ########################################
 
 encoded_password = quote_plus(common.POSTGRES_PASSWORD)
-print(encoded_password)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{common.POSTGRES_USER}:{encoded_password}@{common.POSTGRES_HOST}:{common.POSTGRES_PORT}/{common.POSTGRES_DB}"      
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
