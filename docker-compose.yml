@@ -23,6 +23,7 @@ services:
       - crawlic-internal
     volumes:
       - static_volume:/app/static
+      - ./.env:/app/.env:ro
       # Shared memory for Chrome/Selenium
       - /dev/shm:/dev/shm
     environment:
