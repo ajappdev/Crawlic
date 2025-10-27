@@ -10,7 +10,7 @@ import os
 import signal
 import psutil
 import platform
-from decouple import Config, RepositoryEnv
+from decouple import Config, RepositoryEnv, config
 import os
 from pathlib import Path
 
@@ -22,15 +22,28 @@ from urllib.parse import urljoin, urlparse
 # Fetching ENV Variables from .env file
 BASE_DIR = Path(__file__).resolve().parent
 DOTENV_FILE = os.path.join(BASE_DIR, '.env')
-env_config = Config(RepositoryEnv(DOTENV_FILE))
-OPENAI_ORGANIZATION_ID = env_config.get('ORGANIZATION_ID')
-OPENAI_PROJECT_ID = env_config.get('PROJECT_ID')
-OPENAI_API_KEY = env_config.get('OPENAI_API_KEY')
-POSTGRES_PASSWORD = env_config.get('POSTGRES_PASSWORD')
-POSTGRES_DB = env_config.get('POSTGRES_DB')
-POSTGRES_USER = env_config.get('POSTGRES_USER')
-POSTGRES_HOST = env_config.get('POSTGRES_HOST')
-POSTGRES_PORT = env_config.get('POSTGRES_PORT')
+
+try:
+    # Try to read from .env file (for local development)
+    env_config = Config(RepositoryEnv(DOTENV_FILE))
+    OPENAI_ORGANIZATION_ID = env_config.get('ORGANIZATION_ID')
+    OPENAI_PROJECT_ID = env_config.get('PROJECT_ID')
+    OPENAI_API_KEY = env_config.get('OPENAI_API_KEY')
+    POSTGRES_PASSWORD = env_config.get('POSTGRES_PASSWORD')
+    POSTGRES_DB = env_config.get('POSTGRES_DB')
+    POSTGRES_USER = env_config.get('POSTGRES_USER')
+    POSTGRES_HOST = env_config.get('POSTGRES_HOST')
+    POSTGRES_PORT = env_config.get('POSTGRES_PORT')
+except Exception as e:
+    # Fallback to environment variables (for production/Docker)
+    OPENAI_ORGANIZATION_ID = config('ORGANIZATION_ID')
+    OPENAI_PROJECT_ID = config('PROJECT_ID')
+    OPENAI_API_KEY = config('OPENAI_API_KEY')
+    POSTGRES_PASSWORD = config('POSTGRES_PASSWORD')
+    POSTGRES_DB = config('POSTGRES_DB')
+    POSTGRES_USER = config('POSTGRES_USER')
+    POSTGRES_HOST = config('POSTGRES_HOST')
+    POSTGRES_PORT = config('POSTGRES_PORT')
 
 # GLOBAL_VARIABLES
 PROXIES = [
