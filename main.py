@@ -1,11 +1,14 @@
 # General imports
-from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import secrets
 from functools import wraps
-from flask_swagger_ui import get_swaggerui_blueprint
 from urllib.parse import quote_plus
+
+# flask imports
+from flask_swagger_ui import get_swaggerui_blueprint
+from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 # App imports
 import common as common
@@ -13,6 +16,7 @@ import ai as ai
 
 # Flask app config
 app = Flask(__name__)
+CORS(app)
 
 ########################################
 # Swagger UI Configuration

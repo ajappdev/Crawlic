@@ -8,3 +8,4 @@ seleniumbase
 openai
 psycopg2-binary
 gunicorn
+flask-cors
