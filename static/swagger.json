@@ -1,12 +1,12 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Web Scraping API",
-    "description": "API for web page scraping, content analysis, and contact information extraction. Requires API key authentication.",
+    "title": "Crawlic API",
+    "description": "REST API for intelligent web scraping, data extraction, and AI-powered data querying",
     "version": "1.0.0",
     "contact": {
       "name": "API Support",
-      "email": "support@example.com"
+      "email": "ajappdev@gmail.com"
     }
   },
   "servers": [
