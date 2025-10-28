@@ -125,7 +125,7 @@ def register():
 # Scraping Endpoints
 ########################################
 
-@app.route('/page-content', methods=['GET'])
+@app.route('/page-content', methods=['POST'])
 @require_api_key
 def get_page_content():
     """
@@ -163,7 +163,7 @@ def get_page_content():
         }), 500
 
 
-@app.route('/describe-page', methods=['GET'])
+@app.route('/describe-page', methods=['POST'])
 @require_api_key
 def describe_page():
     try:
@@ -201,7 +201,7 @@ def describe_page():
         }), 500
 
 
-@app.route('/find-contact-email', methods=['GET'])
+@app.route('/find-contact-email', methods=['POST'])
 @require_api_key
 def find_contact_email():
     try:

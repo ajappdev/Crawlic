@@ -11,6 +11,10 @@
   },
   "servers": [
     {
+      "url": "https://crawlic.ialae.com",
+      "description": "Production server"
+    },
+    {
       "url": "http://localhost:9500",
       "description": "Development server"
     }
@@ -90,7 +94,7 @@
       }
     },
     "/page-content": {
-      "get": {
+      "post": {
         "tags": ["Scraping"],
         "summary": "Get web page content",
         "description": "Retrieves the raw HTML content of a specified web page",
@@ -204,7 +208,7 @@
       }
     },
     "/describe-page": {
-      "get": {
+      "post": {
         "tags": ["Scraping"],
         "summary": "Get page content with AI analysis",
         "description": "Retrieves web page content and provides an AI-generated summary and type classification",
@@ -323,7 +327,7 @@
       }
     },
     "/find-contact-email": {
-      "get": {
+      "post": {
         "tags": ["Scraping"],
         "summary": "Find contact emails on a page",
         "description": "Extracts all email addresses found on the specified web page",
