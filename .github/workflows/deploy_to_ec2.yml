@@ -35,6 +35,10 @@ jobs:
         cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/crawlic:latest
         cache-to: type=inline
     
+    - name: Clear Docker Build Cache
+      run: |
+        docker builder prune --force
+
     # Build and push React Frontend image
     - name: Build and push React Frontend Docker image
       uses: docker/build-push-action@v5
