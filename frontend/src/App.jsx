@@ -61,7 +61,7 @@ export default function CrawlicLanding() {
       const data = await response.json();
 
       if (data[0].api_key) {
-        setApiKey(data.api_key);
+        setApiKey(data[0].api_key);
         alert('API Key generated! It has been filled in the test section.');
       }
     } catch (error) {
