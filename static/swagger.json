@@ -30,7 +30,7 @@
     }
   ],
   "paths": {
-    "/register": {
+    "/api/register": {
       "post": {
         "tags": ["Authentication"],
         "summary": "Register a new client",

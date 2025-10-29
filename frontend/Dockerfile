@@ -10,30 +10,19 @@ RUN npm run build
 # ========= STAGE 2: SERVE =========
 FROM nginx:alpine
 
-# Copy assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# === CREATE ALL REQUIRED DIRECTORIES WITH CORRECT PERMISSIONS ===
-RUN mkdir -p \
-        /var/cache/nginx/client_temp \
-        /var/cache/nginx/proxy_temp \
-        /var/cache/nginx/fastcgi_temp \
-        /var/cache/nginx/uwsgi_temp \
-        /var/cache/nginx/scgi_temp \
-        /run/nginx \
-    && chown -R nginx:nginx \
-        /var/cache/nginx \
-        /var/log/nginx \
-        /etc/nginx/conf.d \
-        /run/nginx
+# Create PID dir
+RUN mkdir -p /run/nginx && chown nginx:nginx /run/nginx
 
-# Switch to non-root user
-USER nginx
+# Remove USER nginx
+# Let entrypoint run as root, then drop
 
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://localhost/health >/dev/null 2>&1 || exit 1
 
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
+# Start as root, drop to nginx user
+CMD ["nginx", "-g", "daemon off; user nginx;"]
