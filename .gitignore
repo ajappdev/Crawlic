@@ -1,146 +1,304 @@
-# Django #
-*.log
-*.pot
-*.pyc
-__pycache__
-media
+# ===================================
+# Python
+# ===================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Backup files # 
-*.bak 
+# C extensions
+*.so
 
-# If you are using PyCharm # 
-# User-specific stuff
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
-
-# AWS User-specific
-.idea/**/aws.xml
-
-# Generated files
-.idea/**/contentModel.xml
-
-!vendor/
-# Sensitive or high-churn files
-.idea/**/dataSources/
-.idea/**/dataSources.ids
-.idea/**/dataSources.local.xml
-.idea/**/sqlDataSources.xml
-.idea/**/dynamic.xml
-.idea/**/uiDesigner.xml
-.idea/**/dbnavigator.xml
-
-# Gradle
-.idea/**/gradle.xml
-.idea/**/libraries
-
-# File-based project format
-*.iws
-*.pem
-# IntelliJ
-out/
-
-# JIRA plugin
-atlassian-ide-plugin.xml
-
-# Python # 
-*.py[cod] 
-*$py.class 
-
-# SQLite database file
-db.sqlite3
-
-# Distribution / packaging 
-.Python build/ 
-develop-eggs/ 
-dist/ 
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
 downloads/
-postgres-data/
-eggs/ 
-.eggs/ 
-lib/ 
-lib64/ 
-parts/ 
-sdist/ 
-var/ 
-wheels/ 
-*.egg-info/ 
-.installed.cfg 
-*.egg 
-*.manifest 
-*.spec 
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Installer logs 
-pip-log.txt 
-pip-delete-this-directory.txt 
+# PyInstaller
+*.manifest
+*.spec
 
-# Unit test / coverage reports 
-htmlcov/ 
-.tox/ 
-.coverage 
-.coverage.* 
-.cache 
-.pytest_cache/ 
-nosetests.xml 
-coverage.xml 
-*.cover 
-.hypothesis/ 
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
 
-# Jupyter Notebook 
-.ipynb_checkpoints 
+# Flask
+instance/
+.webassets-cache
 
-# pyenv 
-.python-version 
+# Scrapy
+.scrapy
 
-# celery 
-celerybeat-schedule.* 
+# Sphinx documentation
+docs/_build/
 
-# SageMath parsed files 
-*.sage.py 
+# PyBuilder
+target/
 
-# Environments 
-*.envdev
-.envdev
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
 .env
-.env.dev
-.envdev
-.venv 
-env/ 
+.env.local
+.env.development
+.env.test
+.env.production
+.venv
+env/
 venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ===================================
+# Node.js / React (frontend)
+# ===================================
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production builds (ignore compiled output, keep source)
+/frontend/build/
+/frontend/dist/
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ===================================
+# Docker
+# ===================================
+# Docker volumes
+docker-compose.override.yml
+
+# ===================================
+# Database
+# ===================================
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL
+*.sql
+*.dump
+
+# ===================================
+# OS
+# ===================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===================================
+# IDEs and Editors
+# ===================================
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Temporary Items
+.netrwhist
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===================================
+# Logs
+# ===================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ===================================
+# Temporary files
+# ===================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.cache
+
+# ===================================
+# API Keys & Secrets
+# ===================================
+# IMPORTANT: Never commit these!
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# ===================================
+# Selenium / Scraping
+# ===================================
+# Downloaded files
 downloaded_files/
-ENV/ 
-env.bak/ 
-venv.bak/ 
+screenshots/
+assets/
 
-# mkdocs documentation 
-/site 
+# SeleniumBase
+.seleniumbase/
+driver/
+drivers/
 
-# mypy 
-.mypy_cache/ 
+# ===================================
+# Project Specific
+# ===================================
+# Local development files
+.envdev
+.envlocal
 
-# Sublime Text # 
-*.tmlanguage.cache 
-*.tmPreferences.cache 
-*.stTheme.cache 
-*.sublime-workspace 
-*.sublime-project 
+# Backup files
+*.backup
+backup/
 
-# sftp configuration file 
-sftp-config.json 
+# Static files (if generated)
+staticfiles/
+media/
 
-# Package control specific files Package 
-Control.last-run 
-Control.ca-list 
-Control.ca-bundle 
-Control.system-ca-bundle 
-GitHub.sublime-settings 
+# Test files
+test_output/
+test_results/
 
-# Visual Studio Code # 
-.vscode/* 
-!.vscode/settings.json 
-!.vscode/tasks.json 
-!.vscode/launch.json 
-!.vscode/extensions.json 
-.history
+# Migration files (optional - uncomment if you don't want to track them)
+# **/migrations/*.py
+# !**/migrations/__init__.py

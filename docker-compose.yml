@@ -29,15 +29,22 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       ORGANIZATION_ID: ${ORGANIZATION_ID}
       PROJECT_ID: ${PROJECT_ID}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
     depends_on:
       - db
     # Optional: Increase shared memory for Chrome
     shm_size: '2gb'
+
+  frontend:
+    image: alae1ajbar/crawlic-frontend:latest
+    container_name: crawlic_frontend
+    restart: unless-stopped
+    networks:
+      - crawlic-internal
 
   nginx:
     image: nginx:alpine
@@ -45,6 +52,7 @@ services:
     restart: unless-stopped
     depends_on:
       - web
+      - frontend
     networks:
       - crawlic-internal
       - traefik-public

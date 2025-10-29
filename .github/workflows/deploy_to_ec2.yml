@@ -1,4 +1,4 @@
-name: Crawlic Deploy
+name: Flask + React Docker Deploy
 
 on:
   push:
@@ -22,15 +22,30 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-    - name: Build and push Docker image
+    # Build and push Flask API image
+    - name: Build and push Flask API Docker image
       uses: docker/build-push-action@v5
       with:
         push: true
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/crawlic:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/crawlic:${{ github.sha }}
         file: ./Dockerfile
         context: .
         cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/crawlic:latest
+        cache-to: type=inline
+    
+    # Build and push React Frontend image
+    - name: Build and push React Frontend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        push: true
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/crawlic-frontend:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/crawlic-frontend:${{ github.sha }}
+        file: ./frontend/Dockerfile
+        context: ./frontend
+        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/crawlic-frontend:latest
         cache-to: type=inline
     
     - name: Create .env file
@@ -38,11 +53,11 @@ jobs:
         echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" > .env
         echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
         echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
-        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-        echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> .env
+        echo "POSTGRES_HOST=db" >> .env
+        echo "POSTGRES_PORT=5432" >> .env
         echo "ORGANIZATION_ID=${{ secrets.ORGANIZATION_ID }}" >> .env
-        echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> .env
-        echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> .env
+        echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> .env
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
     
     - name: Copy files to EC2
       uses: appleboy/scp-action@v0.1.4
@@ -78,10 +93,6 @@ jobs:
           
           # Wait for containers to be healthy
           sleep 20
-          
-          # Run Flask database migrations (if using Flask-Migrate)
-          # Uncomment if you're using Flask-Migrate/Alembic:
-          # sudo docker exec crawlic_flask flask db upgrade
           
           # Clean up old images
           sudo docker image prune -af

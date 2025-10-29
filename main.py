@@ -88,7 +88,7 @@ def require_api_key(func):
         return func(*args, **kwargs)
     return wrapper
 
-@app.route("/register", methods=["POST"])
+@app.route("/api/register", methods=["POST"])
 def register():
     """
     Registers a new client and generates an API key.
@@ -125,7 +125,7 @@ def register():
 # Scraping Endpoints
 ########################################
 
-@app.route('/page-content', methods=['POST'])
+@app.route('/api/page-content', methods=['POST'])
 @require_api_key
 def get_page_content():
     """
@@ -163,7 +163,7 @@ def get_page_content():
         }), 500
 
 
-@app.route('/describe-page', methods=['POST'])
+@app.route('/api/describe-page', methods=['POST'])
 @require_api_key
 def describe_page():
     try:
@@ -201,7 +201,7 @@ def describe_page():
         }), 500
 
 
-@app.route('/find-contact-email', methods=['POST'])
+@app.route('/api/find-contact-email', methods=['POST'])
 @require_api_key
 def find_contact_email():
     try:
