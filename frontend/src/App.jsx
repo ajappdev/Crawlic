@@ -59,7 +59,8 @@ export default function CrawlicLanding() {
       });
       
       const data = await response.json();
-      if (data.api_key) {
+
+      if (data[0].api_key) {
         setApiKey(data.api_key);
         alert('API Key generated! It has been filled in the test section.');
       }
@@ -83,7 +84,7 @@ export default function CrawlicLanding() {
             <a href="#features" className="hover:text-blue-400 transition">Features</a>
             <a href="#playground" className="hover:text-blue-400 transition">Playground</a>
             <a href="#pricing" className="hover:text-blue-400 transition">Pricing</a>
-            <a href="https://crawlic.ialae.com/api/api/docs" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+            <a href="https://crawlic.ialae.com/api/docs" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
               API Docs
             </a>
           </div>
