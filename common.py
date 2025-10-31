@@ -9,7 +9,6 @@ import subprocess
 import os
 import signal
 import psutil
-import platform
 from decouple import Config, RepositoryEnv, config
 import os
 from pathlib import Path
@@ -52,8 +51,6 @@ PROXIES = [
 "154.6.116.19:5988:smjpoqfr:bg3x4gn8qbz5",
 ]
 
-OS_MACHINE = platform.system()
-
 ##############################################
 ##############################################
 ##############################################
@@ -73,41 +70,8 @@ def quit_driver(driver):
     # Explicitly delete the driver object
     del driver
 
-    # Terminate any lingering processes associated with ChromeDriver
-    if OS_MACHINE == "Windows":
-        kill_all_chrome_processes_windows()
-    elif OS_MACHINE == "Linux":
-        kill_all_chrome_processes_linux()
+    kill_all_chrome_processes_linux()
 
-def kill_all_chrome_processes_windows():
-    """
-    Aggressively kill all Chrome and ChromeDriver processes
-    """
-    process_names = ['chrome', 'chromedriver', 'chrome.exe', 'chromedriver.exe']
-    total_killed = 0
-    
-    for process_name in process_names:
-        for proc in psutil.process_iter(['name', 'pid']):
-            try:
-                if process_name.lower() in proc.info['name'].lower():
-                    print(f"Killing {proc.info['name']} (PID: {proc.info['pid']})")
-                    proc.kill()
-                    total_killed += 1
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-    
-    if total_killed > 0:
-        print(f"Killed {total_killed} Chrome processes")
-        time.sleep(5)  # Longer wait for cleanup
-        
-        # Double-check and force kill any remaining processes
-        for proc in psutil.process_iter(['name', 'pid']):
-            try:
-                if any(name.lower() in proc.info['name'].lower() for name in process_names):
-                    print(f"Force killing remaining {proc.info['name']} (PID: {proc.info['pid']})")
-                    proc.kill()
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
 
 def kill_all_chrome_processes_linux():
     """
@@ -132,6 +96,7 @@ def kill_all_chrome_processes_linux():
                     print(f"⚠️ Could not kill process {pid}: {e}")
     except Exception as e:
         print(f"❌ Error while killing chrome processes: {e}")
+
 
 # FUNCTIONS TO USE WHEN SCRAPING BEHIND A PROXY
 def parse_proxy(proxy_string):

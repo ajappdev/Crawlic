@@ -16,7 +16,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5431:5432"  # Expose PostgreSQL for local DB tools
+      - "5431:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: crawlic_redis_local
+    restart: unless-stopped
+    networks:
+      - crawlic-internal
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
 
   web:
     build:
@@ -24,11 +35,40 @@ services:
       dockerfile: Dockerfile
     container_name: crawlic_flask_local
     restart: unless-stopped
-    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 3 --timeout 120
+    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 3 --timeout 30
     networks:
       - crawlic-internal
     volumes:
+      - .:/app
       - static_volume:/app/static
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      ORGANIZATION_ID: ${ORGANIZATION_ID}
+      PROJECT_ID: ${PROJECT_ID}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "9500:9500"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=1
+    deploy:
+      replicas: 3
+    networks:
+      - crawlic-internal
+    volumes:
+      - .:/app
       - /dev/shm:/dev/shm
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -36,14 +76,32 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
       ORGANIZATION_ID: ${ORGANIZATION_ID}
       PROJECT_ID: ${PROJECT_ID}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+    shm_size: '2gb'
     depends_on:
       - db
-    shm_size: '2gb'
+      - redis
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crawlic_flower_local
+    restart: unless-stopped
+    command: celery -A celery_app flower --port=5555
+    networks:
+      - crawlic-internal
+    volumes:
+      - .:/app
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
     ports:
-      - "9500:9500"  # Expose Flask directly for debugging
+      - "5555:5555"
 
   frontend:
     build:
@@ -54,7 +112,7 @@ services:
     networks:
       - crawlic-internal
     ports:
-      - "3000:80"  # Expose frontend directly
+      - "3000:80"
 
   nginx:
     image: nginx:alpine
@@ -69,7 +127,7 @@ services:
       - static_volume:/app/static
       - ./nginx-local.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - "8000:80"  # Expose nginx on local port 8000
+      - "8000:80"
 
 networks:
   crawlic-internal:
@@ -77,4 +135,5 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
   static_volume:

@@ -14,16 +14,48 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    container_name: crawlic_redis
+    restart: unless-stopped
+    networks:
+      - crawlic-internal
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
   web:
     image: alae1ajbar/crawlic:latest
     container_name: crawlic_flask
     restart: unless-stopped
-    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 3 --timeout 120
+    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 3 --timeout 30
     networks:
       - crawlic-internal
     volumes:
       - static_volume:/app/static
-      # Shared memory for Chrome/Selenium
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      ORGANIZATION_ID: ${ORGANIZATION_ID}
+      PROJECT_ID: ${PROJECT_ID}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    image: alae1ajbar/crawlic:latest
+    restart: unless-stopped
+    command: celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=1
+    deploy:
+      replicas: 5
+    networks:
+      - crawlic-internal
+    volumes:
       - /dev/shm:/dev/shm
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -31,13 +63,28 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
       ORGANIZATION_ID: ${ORGANIZATION_ID}
       PROJECT_ID: ${PROJECT_ID}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+    shm_size: '2gb'
     depends_on:
       - db
-    # Optional: Increase shared memory for Chrome
-    shm_size: '2gb'
+      - redis
+
+  flower:
+    image: alae1ajbar/crawlic:latest
+    container_name: crawlic_flower
+    restart: unless-stopped
+    command: celery -A celery_app flower --port=5555
+    networks:
+      - crawlic-internal
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    ports:
+      - "5555:5555"
 
   frontend:
     image: alae1ajbar/crawlic-frontend:latest
@@ -62,14 +109,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
-      # HTTP router (redirects to HTTPS)
       - "traefik.http.routers.crawlic.rule=Host(`crawlic.ialae.com`)"
       - "traefik.http.routers.crawlic.entrypoints=web"
-      # HTTPS router
       - "traefik.http.routers.crawlic-secure.rule=Host(`crawlic.ialae.com`)"
       - "traefik.http.routers.crawlic-secure.entrypoints=websecure"
       - "traefik.http.routers.crawlic-secure.tls.certresolver=letsencrypt"
-      # Service definition
       - "traefik.http.services.crawlic.loadbalancer.server.port=80"
 
 networks:
@@ -80,4 +124,5 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
   static_volume:

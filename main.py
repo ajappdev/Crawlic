@@ -4,12 +4,17 @@ import secrets
 from functools import wraps
 from urllib.parse import quote_plus
 import json
+import os
+import time
 
 # flask imports
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+
+# Celery imports
+from celery_app import celery, scrape_page_content_task, find_contact_email_task
 
 # App imports
 import common as common
@@ -22,10 +27,9 @@ CORS(app)
 ########################################
 # Swagger UI Configuration
 ########################################
-SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
-API_URL = '/static/swagger.json'  # Our API url (can be a local file or URL)
+SWAGGER_URL = '/api/docs'
+API_URL = '/static/swagger.json'
 
-# Call factory function to create our blueprint
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
@@ -61,6 +65,32 @@ with app.app_context():
 ########################################
 # End Database Initialization
 ########################################
+
+
+########################################
+# Useful Functions
+########################################
+
+def check_task_status(link)
+
+    task = scrape_page_content_task.apply_async(args=[link])
+
+    task_running = True
+    task_success = False
+    counter = 0
+
+    while task_running and counter <= 10:
+        time.sleep(6)
+        task_to_check = celery.AsyncResult(task_id)
+        counter += 1
+        if task_to_check.state == "SUCCESS":
+            task_running = False
+            task_success = True
+        elif task_to_check.state == "FAILURE":
+            task_running = False
+            task_success = False
+
+    return task_running, task_success, task
 
 ########################################
 # Authentification Endpoints and wrappers
@@ -123,18 +153,72 @@ def register():
 ########################################
 
 ########################################
-# Scraping Endpoints
+# Task Status Endpoint
+########################################
+
+@app.route('/api/task/<task_id>', methods=['GET'])
+@require_api_key
+def get_task_status(task_id):
+    """
+    Check the status of an async task.
+    Returns task state and result if completed.
+    """
+    task = celery.AsyncResult(task_id)
+    
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'status': 'Task is waiting in queue...',
+            'progress': 0
+        }
+    elif task.state == 'STARTED':
+        response = {
+            'state': task.state,
+            'status': 'Task is processing...',
+            'progress': 30
+        }
+    elif task.state == 'PROGRESS':
+        response = {
+            'state': task.state,
+            'status': task.info.get('status', 'Processing...'),
+            'progress': 60
+        }
+    elif task.state == 'SUCCESS':
+        result = task.result
+        response = {
+            'state': task.state,
+            'status': 'Task completed successfully',
+            'progress': 100,
+            'result': result
+        }
+    elif task.state == 'FAILURE':
+        response = {
+            'state': task.state,
+            'status': 'Task failed',
+            'error': str(task.info),
+            'progress': 0
+        }
+    else:
+        response = {
+            'state': task.state,
+            'status': str(task.info),
+            'progress': 0
+        }
+    
+    return jsonify(response)
+
+########################################
+# Scraping Endpoints (Async with Celery)
 ########################################
 
 @app.route('/api/page-content', methods=['POST'])
 @require_api_key
 def get_page_content():
     """
-    This endpoint returns the content of the web page (link) provided in
-    the body
+    Queue a task to get page content asynchronously.
+    Returns immediately with task_id for status checking.
     """
     try:
-        # Validate JSON body
         data = request.get_json()
         if not data or "link" not in data:
             return jsonify({
@@ -144,20 +228,17 @@ def get_page_content():
 
         link = data["link"]
 
-        # Call your logic
-        content = common.get_source_content(link)
+        # Queue the task
+        task = scrape_page_content_task.apply_async(args=[link])
 
-        # Return structured response
         return jsonify({
             "success": True,
-            "data": {
-                "link": link,
-                "content": content
-            }
-        }), 200
+            "task_id": task.id,
+            "status_url": f"/api/task/{task.id}",
+            "message": "Task queued successfully. Use task_id to check status."
+        }), 202
     
     except Exception as e:
-        # In production, log the error instead of exposing str(e)
         return jsonify({
             "success": False,
             "error": str(e)
@@ -178,9 +259,21 @@ def describe_page():
 
         link = data["link"]
 
-        # Call the existing endpoint internally
-        content = common.get_source_content(link)
-        
+        task_running, task_success, task = check_task_status(link)
+
+        if task_success is False:
+            return jsonify({
+                "success": False,
+                "error": "Error scraping the link"
+            }, 500)
+        elif task_running:
+            return jsonify({
+                "success": False,
+                "error": "Timeout. Task took too much time!"
+            }, 504)
+
+        content = task['content']
+
         # Analyze content using AI module
         description = ai.describe_web_page_content(content)
         
@@ -218,7 +311,20 @@ def custom_page_content():
         user_query = data['user_query']
         output_format = data['output_format']
 
-        html_content = common.get_source_content(link)
+        task_running, task_success, task = check_task_status(link)
+
+        if task_success is False:
+            return jsonify({
+                "success": False,
+                "error": "Error scraping the link"
+            }, 500)
+        elif task_running:
+            return jsonify({
+                "success": False,
+                "error": "Timeout. Task took too much time!"
+            }, 504)
+
+        html_content = task['content']
 
         # Check if output_format is valid JSON
         is_valid, error_msg = common.is_valid_json(
@@ -256,7 +362,21 @@ def get_answer_from_page():
         link = data['link']
         user_query = data['user_query']
 
-        html_content = common.get_source_content(link)
+        task_running, task_success, task = check_task_status(link)
+
+        if task_success is False:
+            return jsonify({
+                "success": False,
+                "error": "Error scraping the link"
+            }, 500)
+            
+        elif task_running:
+            return jsonify({
+                "success": False,
+                "error": "Timeout. Task took too much time!"
+            }, 504)
+
+        html_content = task['content']
         
         answer = ai.get_answer_from_page(html_content, user_query)
 
@@ -288,7 +408,20 @@ def find_contact_email():
         
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+########################################
+# Health Check
+########################################
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    """Check if the API is running"""
+    return jsonify({
+        'status': 'healthy',
+        'redis': os.getenv('REDIS_URL', 'not configured')
+    }), 200
+
     
 if __name__ == "__main__":
-    print("Starting Flask app with SeleniumBase...")
+    print("Starting Flask app with Celery + Redis...")
     app.run(host='0.0.0.0', port=9500, debug=True)
