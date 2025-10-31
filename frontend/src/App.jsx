@@ -26,7 +26,7 @@ export default function CrawlicLanding() {
     setResult(null);
     
     try {
-      const response = await fetch(`https://crawlic.ialae.com/api/${activeTab}`, {
+      const response = await fetch(`/api/${activeTab}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ export default function CrawlicLanding() {
     
     setLoading(true);
     try {
-      const response = await fetch('https://crawlic.ialae.com/api/register', {
+      const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email })
@@ -84,7 +84,7 @@ export default function CrawlicLanding() {
             <a href="#features" className="hover:text-blue-400 transition">Features</a>
             <a href="#playground" className="hover:text-blue-400 transition">Playground</a>
             <a href="#pricing" className="hover:text-blue-400 transition">Pricing</a>
-            <a href="https://crawlic.ialae.com/api/docs" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+            <a href="/api/docs" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
               API Docs
             </a>
           </div>

@@ -13,6 +13,7 @@ import platform
 from decouple import Config, RepositoryEnv, config
 import os
 from pathlib import Path
+from typing import Any, Dict, Optional, List, Union
 
 # SCRAPING IMPORTATIONS
 from seleniumbase import Driver
@@ -608,3 +609,64 @@ def random_string(length):
     """
     chars = string.ascii_letters + string.digits
     return ''.join(random.choices(chars, k=length))
+
+def is_valid_json(
+    input_data: Union[str, dict],
+    required_keys: Optional[List[str]] = None,
+    optional_keys: Optional[List[str]] = None,
+    key_types: Optional[Dict[str, type]] = None,
+    strict: bool = False) -> tuple[bool, Optional[str]]:
+    """
+    Validates if input is valid JSON with correct format.
+    
+    Args:
+        input_data: String to parse as JSON or dict to validate
+        required_keys: List of keys that must be present
+        optional_keys: List of keys that may be present (only checked if strict=True)
+        key_types: Dict mapping key names to expected types (e.g., {'name': str, 'age': int})
+        strict: If True, only required_keys and optional_keys are allowed
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: Boolean indicating if validation passed
+        - error_message: None if valid, otherwise description of the error
+    """
+    
+    # Step 1: Parse JSON if it's a string
+    if isinstance(input_data, str):
+        try:
+            data = json.loads(input_data)
+        except json.JSONDecodeError as e:
+            return False, f"Invalid JSON syntax: {str(e)}"
+    elif isinstance(input_data, dict):
+        data = input_data
+    else:
+        return False, f"Input must be a string or dict, got {type(input_data).__name__}"
+    
+    # Step 2: Check if parsed data is a dictionary
+    if not isinstance(data, dict):
+        return False, f"JSON must be an object/dict, got {type(data).__name__}"
+    
+    # Step 3: Check required keys
+    if required_keys:
+        missing_keys = set(required_keys) - set(data.keys())
+        if missing_keys:
+            return False, f"Missing required keys: {', '.join(missing_keys)}"
+    
+    # Step 4: Check for unexpected keys in strict mode
+    if strict and (required_keys or optional_keys):
+        allowed_keys = set(required_keys or []) | set(optional_keys or [])
+        unexpected_keys = set(data.keys()) - allowed_keys
+        if unexpected_keys:
+            return False, f"Unexpected keys: {', '.join(unexpected_keys)}"
+    
+    # Step 5: Check key types
+    if key_types:
+        for key, expected_type in key_types.items():
+            if key in data:
+                if not isinstance(data[key], expected_type):
+                    actual_type = type(data[key]).__name__
+                    expected_type_name = expected_type.__name__
+                    return False, f"Key '{key}' has wrong type: expected {expected_type_name}, got {actual_type}"
+    
+    return True, None

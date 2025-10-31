@@ -3,6 +3,7 @@ from datetime import datetime
 import secrets
 from functools import wraps
 from urllib.parse import quote_plus
+import json
 
 # flask imports
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -200,6 +201,73 @@ def describe_page():
             "error": str(e)
         }), 500
 
+
+@app.route('/api/custom-page-content', methods=['POST'])
+@require_api_key
+def custom_page_content():
+    try:
+        data = request.get_json()
+        if not data or 'link' not in data:
+            return jsonify({"success": False, "error": "Missing 'link' in request payload"}), 400
+        elif 'user_query' not in data:
+            return jsonify({"success": False, "error": "Missing 'user_query' in request payload"}), 400
+        elif 'output_format' not in data:
+            return jsonify({"success": False, "error": "'output_format' cannot be empty"}), 400
+    
+        link = data['link']
+        user_query = data['user_query']
+        output_format = data['output_format']
+
+        html_content = common.get_source_content(link)
+
+        # Check if output_format is valid JSON
+        is_valid, error_msg = common.is_valid_json(
+            output_format,
+            strict=True
+        )
+
+        if not is_valid:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid JSON format for 'output_format' - {error_msg}"
+            }), 400
+
+        custom_answer = ai.return_custom_page_content(html_content, user_query, output_format)
+
+        return jsonify({
+            "success": True,
+            "custom_answer": custom_answer
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/get-answer-from-page', methods=['POST'])
+@require_api_key
+def get_answer_from_page():
+    try:
+        data = request.get_json()
+        if not data or 'link' not in data:
+            return jsonify({"success": False, "error": "Missing 'link' in request payload"}), 400
+        elif 'user_query' not in data:
+            return jsonify({"success": False, "error": "Missing 'user_query' in request payload"}), 400
+    
+        link = data['link']
+        user_query = data['user_query']
+
+        html_content = common.get_source_content(link)
+        
+        answer = ai.get_answer_from_page(html_content, user_query)
+
+        return jsonify({
+            "success": True,
+            "answer": answer
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+        
 
 @app.route('/api/find-contact-email', methods=['POST'])
 @require_api_key
