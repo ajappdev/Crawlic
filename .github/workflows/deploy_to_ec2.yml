@@ -59,6 +59,7 @@ jobs:
         echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
         echo "POSTGRES_HOST=db" >> .env
         echo "POSTGRES_PORT=5432" >> .env
+        echo "REDIS_URL=redis://redis:6379/0" >> .env
         echo "ORGANIZATION_ID=${{ secrets.ORGANIZATION_ID }}" >> .env
         echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> .env
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
@@ -93,13 +94,17 @@ jobs:
           sudo docker-compose pull
           
           # Start services with the updated configuration
-          sudo docker-compose up -d
+          sudo docker-compose up -d --scale worker=5
           
           # Wait for containers to be healthy
-          sleep 20
+          sleep 30
           
           # Clean up old images
           sudo docker image prune -af
           
           # Show container status
           sudo docker-compose ps
+          
+          # Show worker count
+          echo "Worker containers:"
+          sudo docker ps | grep crawlic_worker

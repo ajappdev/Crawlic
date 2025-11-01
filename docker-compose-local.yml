@@ -62,7 +62,7 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=1
+    command: python3 -m celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=1
     deploy:
       replicas: 3
     networks:

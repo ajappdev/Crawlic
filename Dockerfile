@@ -44,22 +44,25 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 # Set up Python environment
 RUN python3 -m pip install --upgrade pip
 
+# Set up working directory
+WORKDIR /app
+
+# Copy requirements.txt first for better caching
+COPY requirements.txt /app/
+
+# Install Python dependencies (includes Celery)
+RUN pip3 install --no-cache-dir -r requirements.txt
+
 # Install SeleniumBase and related packages
 RUN pip3 install psycopg2-binary seleniumbase selenium webdriver-manager
 
 # Install ChromeDriver using SeleniumBase
 RUN seleniumbase install chromedriver
 
-# Set up working directory
-WORKDIR /app
-
-# Copy application files
+# Copy rest of application files
 COPY . /app
 
-# Install Python dependencies from requirements.txt if it exists
-RUN if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi
-
-# Create directories that SeleniumBase might need
+# Create directories
 RUN mkdir -p /app/downloaded_files \
     && mkdir -p /app/logs \
     && mkdir -p /app/assets \
@@ -68,7 +71,11 @@ RUN mkdir -p /app/downloaded_files \
     && chmod -R 777 /app \
     && chmod -R 777 /tmp/seleniumbase
 
-# Create a non-root user but keep running as root for now
+# Verify Celery installation and create symlink if needed
+RUN python3 -m pip show celery && \
+    which celery || ln -s $(python3 -c "import sys; print(sys.prefix)")/bin/celery /usr/local/bin/celery
+
+# Create a non-root user
 RUN useradd -m -s /bin/bash seleniumuser
 
 # Configure Chrome for Docker environment
@@ -89,5 +96,5 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # Expose Flask port
 EXPOSE 5000
 
-# Default command
+# Default command (will be overridden by docker-compose)
 CMD ["python3", "main.py"]
