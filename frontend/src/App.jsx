@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Code, Zap, Shield, PlayCircle, Key, Mail, FileText, Eye, ArrowRight, Check, Github, Twitter } from 'lucide-react';
+import { Code, Zap, Shield, PlayCircle, Key, Mail, FileText, Eye, ArrowRight, Check, Github, Twitter, Search, MessageSquare, Sparkles } from 'lucide-react';
 
 export default function CrawlicLanding() {
   const [activeTab, setActiveTab] = useState('page-content');
@@ -9,11 +9,18 @@ export default function CrawlicLanding() {
   const [result, setResult] = useState(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [taskId, setTaskId] = useState('');
+  const [taskLoading, setTaskLoading] = useState(false);
+  const [taskResult, setTaskResult] = useState(null);
+  const [userQuery, setUserQuery] = useState('');
+  const [outputFormat, setOutputFormat] = useState('');
 
   const endpoints = [
     { id: 'page-content', name: 'Page Content', icon: FileText, description: 'Extract raw HTML' },
     { id: 'describe-page', name: 'AI Analysis', icon: Eye, description: 'Get AI summary' },
-    { id: 'find-contact-email', name: 'Find Emails', icon: Mail, description: 'Extract emails' }
+    { id: 'find-contact-email', name: 'Find Emails', icon: Mail, description: 'Extract emails' },
+    { id: 'custom-page-content', name: 'Custom Extract', icon: Sparkles, description: 'Custom data extraction' },
+    { id: 'get-answer-from-page', name: 'Q&A', icon: MessageSquare, description: 'Ask questions about page' }
   ];
 
   const handleTest = async () => {
@@ -26,21 +33,76 @@ export default function CrawlicLanding() {
     setResult(null);
     
     try {
+      let body = { link: testUrl };
+      
+      // Add additional fields for specific endpoints
+      if (activeTab === 'custom-page-content') {
+        if (!userQuery || !outputFormat) {
+          alert('Please provide user query and output format for custom extraction');
+          setLoading(false);
+          return;
+        }
+        body.user_query = userQuery;
+        body.output_format = outputFormat;
+      } else if (activeTab === 'get-answer-from-page') {
+        if (!userQuery) {
+          alert('Please provide a question for Q&A');
+          setLoading(false);
+          return;
+        }
+        body.user_query = userQuery;
+      }
+      
       const response = await fetch(`/api/${activeTab}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify({ link: testUrl })
+        body: JSON.stringify(body)
       });
       
       const data = await response.json();
       setResult(data);
+      
+      // Auto-fill task ID if returned
+      if (data.task_id) {
+        setTaskId(data.task_id);
+      }
     } catch (error) {
       setResult({ success: false, error: error.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCheckTask = async () => {
+    if (!apiKey) {
+      alert('Please enter your API key first');
+      return;
+    }
+    if (!taskId) {
+      alert('Please enter a task ID');
+      return;
+    }
+    
+    setTaskLoading(true);
+    setTaskResult(null);
+    
+    try {
+      const response = await fetch(`/api/task/${taskId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+      
+      const data = await response.json();
+      setTaskResult(data);
+    } catch (error) {
+      setTaskResult({ success: false, error: error.message });
+    } finally {
+      setTaskLoading(false);
     }
   };
 
@@ -60,8 +122,8 @@ export default function CrawlicLanding() {
       
       const data = await response.json();
 
-      if (data[0].api_key) {
-        setApiKey(data[0].api_key);
+      if (data.api_key) {
+        setApiKey(data.api_key);
         alert('API Key generated! It has been filled in the test section.');
       }
     } catch (error) {
@@ -227,6 +289,45 @@ export default function CrawlicLanding() {
               />
             </div>
 
+            {/* Conditional Fields for Custom Extract */}
+            {activeTab === 'custom-page-content' && (
+              <>
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                  <label className="block text-sm font-semibold mb-2 text-slate-300">User Query</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Extract product information"
+                    value={userQuery}
+                    onChange={(e) => setUserQuery(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                  <label className="block text-sm font-semibold mb-2 text-slate-300">Output Format (JSON)</label>
+                  <textarea
+                    placeholder='{"products": [{"name": "", "price": ""}]}'
+                    value={outputFormat}
+                    onChange={(e) => setOutputFormat(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg focus:border-blue-500 focus:outline-none font-mono text-sm h-24"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Conditional Field for Q&A */}
+            {activeTab === 'get-answer-from-page' && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                <label className="block text-sm font-semibold mb-2 text-slate-300">Your Question</label>
+                <input
+                  type="text"
+                  placeholder="e.g., What is this page about?"
+                  value={userQuery}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            )}
+
             {/* Test Button */}
             <button
               onClick={handleTest}
@@ -258,6 +359,84 @@ export default function CrawlicLanding() {
               ) : (
                 <div className="flex items-center justify-center h-full text-slate-500">
                   Response will appear here after testing
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Task Status Checker Section */}
+      <section id="task-status" className="max-w-7xl mx-auto px-4 py-20">
+        <h2 className="text-4xl font-bold text-center mb-4">Check Task Status</h2>
+        <p className="text-center text-slate-300 mb-12">Track your async scraping tasks in real-time</p>
+        
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Left: Task ID Input */}
+          <div className="space-y-6">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <label className="block text-sm font-semibold mb-2 text-slate-300">Task ID</label>
+              <input
+                type="text"
+                placeholder="Enter task_id from response"
+                value={taskId}
+                onChange={(e) => setTaskId(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg focus:border-blue-500 focus:outline-none font-mono text-sm"
+              />
+              <p className="text-xs text-slate-400 mt-2">
+                Task ID is returned when you submit a scraping request above
+              </p>
+            </div>
+
+            <button
+              onClick={handleCheckTask}
+              disabled={taskLoading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition transform hover:scale-105"
+            >
+              <Search className="w-5 h-5" />
+              {taskLoading ? 'Checking...' : 'Check Status'}
+            </button>
+
+            {/* Progress Indicator */}
+            {taskResult && taskResult.progress !== undefined && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-slate-300">Progress</span>
+                  <span className="text-sm text-slate-400">{taskResult.progress}%</span>
+                </div>
+                <div className="w-full bg-slate-900 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-green-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${taskResult.progress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-slate-400 mt-2">{taskResult.status}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Task Result */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Task Result</h3>
+              {taskResult && (
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  taskResult.state === 'SUCCESS' ? 'bg-green-500/20 text-green-300' : 
+                  taskResult.state === 'FAILURE' ? 'bg-red-500/20 text-red-300' :
+                  'bg-yellow-500/20 text-yellow-300'
+                }`}>
+                  {taskResult.state || 'Unknown'}
+                </span>
+              )}
+            </div>
+            <div className="bg-slate-900 rounded-lg p-4 h-96 overflow-auto">
+              {taskResult ? (
+                <pre className="text-sm text-slate-300 font-mono whitespace-pre-wrap">
+                  {JSON.stringify(taskResult, null, 2)}
+                </pre>
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">
+                  Task status will appear here
                 </div>
               )}
             </div>
