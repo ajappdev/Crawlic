@@ -14,7 +14,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 
 # Celery imports
-from celery_app import celery, scrape_page_content_task, find_contact_email_task
+import celery_app as celery_app
 
 # App imports
 import common as common
@@ -66,35 +66,10 @@ with app.app_context():
 # End Database Initialization
 ########################################
 
-
-########################################
-# Useful Functions
-########################################
-
-def check_task_status(link)
-
-    task = scrape_page_content_task.apply_async(args=[link])
-
-    task_running = True
-    task_success = False
-    counter = 0
-
-    while task_running and counter <= 10:
-        time.sleep(6)
-        task_to_check = celery.AsyncResult(task_id)
-        counter += 1
-        if task_to_check.state == "SUCCESS":
-            task_running = False
-            task_success = True
-        elif task_to_check.state == "FAILURE":
-            task_running = False
-            task_success = False
-
-    return task_running, task_success, task
-
 ########################################
 # Authentification Endpoints and wrappers
 ########################################
+
 def require_api_key(func):
     """
     Decorator to require API key authentication for endpoints.
@@ -163,7 +138,7 @@ def get_task_status(task_id):
     Check the status of an async task.
     Returns task state and result if completed.
     """
-    task = celery.AsyncResult(task_id)
+    task = celery_app.celery.AsyncResult(task_id)
     
     if task.state == 'PENDING':
         response = {
@@ -194,6 +169,7 @@ def get_task_status(task_id):
     elif task.state == 'FAILURE':
         response = {
             'state': task.state,
+            'success': False,
             'status': 'Task failed',
             'error': str(task.info),
             'progress': 0
@@ -210,6 +186,7 @@ def get_task_status(task_id):
 ########################################
 # Scraping Endpoints (Async with Celery)
 ########################################
+
 
 @app.route('/api/page-content', methods=['POST'])
 @require_api_key
@@ -229,7 +206,7 @@ def get_page_content():
         link = data["link"]
 
         # Queue the task
-        task = scrape_page_content_task.apply_async(args=[link])
+        task = celery_app.scrape_page_content_task.apply_async(args=[link])
 
         return jsonify({
             "success": True,
@@ -259,33 +236,14 @@ def describe_page():
 
         link = data["link"]
 
-        task_running, task_success, task = check_task_status(link)
+        task = celery_app.scrape_page_content_task.apply_async(args=[link])
 
-        if task_success is False:
-            return jsonify({
-                "success": False,
-                "error": "Error scraping the link"
-            }, 500)
-        elif task_running:
-            return jsonify({
-                "success": False,
-                "error": "Timeout. Task took too much time!"
-            }, 504)
-
-        content = task['content']
-
-        # Analyze content using AI module
-        description = ai.describe_web_page_content(content)
-        
-        # Return structured response
         return jsonify({
             "success": True,
-            "data": {
-                "content": content,
-                "summary": description.summary,
-                "type": description.type
-            }
-        }), 200
+            "task_id": task.id,
+            "status_url": f"/api/task/{task.id}",
+            "message": "Task queued successfully. Use task_id to check status."
+        }), 202
     
     except Exception as e:
         # In production, log the error instead of exposing str(e)
@@ -311,39 +269,14 @@ def custom_page_content():
         user_query = data['user_query']
         output_format = data['output_format']
 
-        task_running, task_success, task = check_task_status(link)
-
-        if task_success is False:
-            return jsonify({
-                "success": False,
-                "error": "Error scraping the link"
-            }, 500)
-        elif task_running:
-            return jsonify({
-                "success": False,
-                "error": "Timeout. Task took too much time!"
-            }, 504)
-
-        html_content = task['content']
-
-        # Check if output_format is valid JSON
-        is_valid, error_msg = common.is_valid_json(
-            output_format,
-            strict=True
-        )
-
-        if not is_valid:
-            return jsonify({
-                "success": False,
-                "error": f"Invalid JSON format for 'output_format' - {error_msg}"
-            }), 400
-
-        custom_answer = ai.return_custom_page_content(html_content, user_query, output_format)
+        task = celery_app.custom_page_content_task.apply_async(args=[link, output_format, user_query])
 
         return jsonify({
             "success": True,
-            "custom_answer": custom_answer
-        }), 200
+            "task_id": task.id,
+            "status_url": f"/api/task/{task.id}",
+            "message": "Task queued successfully. Use task_id to check status."
+        }), 202
         
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -362,28 +295,14 @@ def get_answer_from_page():
         link = data['link']
         user_query = data['user_query']
 
-        task_running, task_success, task = check_task_status(link)
-
-        if task_success is False:
-            return jsonify({
-                "success": False,
-                "error": "Error scraping the link"
-            }, 500)
-            
-        elif task_running:
-            return jsonify({
-                "success": False,
-                "error": "Timeout. Task took too much time!"
-            }, 504)
-
-        html_content = task['content']
-        
-        answer = ai.get_answer_from_page(html_content, user_query)
+        task = celery_app.get_answer_from_page_task.apply_async(args=[link, user_query])
 
         return jsonify({
             "success": True,
-            "answer": answer
-        }), 200
+            "task_id": task.id,
+            "status_url": f"/api/task/{task.id}",
+            "message": "Task queued successfully. Use task_id to check status."
+        }), 202
         
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -397,14 +316,16 @@ def find_contact_email():
         if not data or 'link' not in data:
             return jsonify({"success": False, "error": "Missing 'link' in request payload"}), 400
     
-        emails = common.find_contact_email(data['link'])
+        link = data['link']
+
+        task = celery_app.find_contact_email_task.apply_async(args=[link])
+
         return jsonify({
             "success": True,
-            "data": {
-                "link": data['link'],
-                "emails": emails
-            }
-        }), 200
+            "task_id": task.id,
+            "status_url": f"/api/task/{task.id}",
+            "message": "Task queued successfully. Use task_id to check status."
+        }), 202
         
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

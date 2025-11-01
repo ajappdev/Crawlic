@@ -6,10 +6,8 @@ Each worker runs in isolation to prevent Chrome process interference.
 from celery import Celery
 from celery.signals import worker_process_shutdown
 import os
-import subprocess
-import signal
 import common as common
-
+import ai as ai
 
 # Initialize Celery
 celery = Celery(
@@ -37,15 +35,6 @@ celery.conf.update(
 )
 
 
-@worker_process_shutdown.sender
-def cleanup_chrome_on_shutdown(**kwargs):
-    """
-    Safety net: Kill any remaining Chrome processes when worker shuts down.
-    This runs after each task due to worker_max_tasks_per_child=1
-    """
-    common.kill_all_chrome_processes_linux()
-
-
 @celery.task(bind=True, max_retries=3, name='crawlic_tasks.scrape_page_content')
 def scrape_page_content_task(self, link):
     """
@@ -62,19 +51,127 @@ def scrape_page_content_task(self, link):
         content = common.get_source_content(link)
         return {
             'success': True,
-            'link': link,
             'content': content
         }
-    except TimeoutException:
-        error_msg = f"Page load timeout for {link}"
-        print(f"⏱️ {error_msg}")
-        raise self.retry(exc=TimeoutException(error_msg), countdown=10)
     except Exception as e:
         error_msg = f"Scraping failed: {str(e)}"
         print(f"❌ {error_msg}")
         return {
             'success': False,
-            'link': link,
+            'error': error_msg
+        }
+    
+
+@celery.task(bind=True, max_retries=3, name='crawlic_tasks.get_answer_from_page')
+def get_answer_from_page_task(self, link, user_query):
+    """
+    Scrapes page content using Selenium in an isolated worker then analyzes its
+    content with OpenAI Responses API then answers the user query
+    
+    Args:
+        link (str): URL to scrape
+        user_query (str): The question of the user 
+        
+    Returns:
+        dict: Contains success status and AI answer or error
+    """
+    try:
+        self.update_state(state='PROGRESS', meta={'status': 'Answering user query about content'})
+        content = common.get_source_content(link)
+        answer = ai.get_answer_from_page(content, user_query)
+        return {
+            'success': True,
+            'answer': answer
+        }
+    except Exception as e:
+        error_msg = f"Scraping failed: {str(e)}"
+        print(f"❌ {error_msg}")
+        return {
+            'success': False,
+            'error': error_msg
+        }
+    
+
+@celery.task(bind=True, max_retries=3, name='crawlic_tasks.custom_page_content')
+def custom_page_content_task(self, link, output_format, user_query):
+    """
+    Scrapes page content using Selenium in an isolated worker and then
+    analyzes its content with OpenAI Responses API and answers the user query
+    in a structured JSON format
+    
+    Args:
+        link (str): URL to scrape
+        user_query (str): The question of the user 
+        output_format (str): The required JSON structure from AI response
+        
+    Returns:
+        dict: Contains success status and custom AI answer in specified
+        JSON format or error
+    """
+    try:
+        self.update_state(state='PROGRESS', meta={'status': 'Answering user query about content'})
+        content = common.get_source_content(link)
+
+        # Check if output_format is valid JSON
+        is_valid, error_msg = common.is_valid_json(
+            output_format,
+            strict=True
+        )
+
+        if not is_valid:
+            return {
+                "success": False,
+                "error": f"Invalid JSON format for 'output_format' - {error_msg}"
+            }
+
+        custom_answer = ai.return_custom_page_content(
+            content, user_query, output_format)
+
+        return {
+            "success": True,
+            "custom_answer": custom_answer
+        }
+    
+    except Exception as e:
+        error_msg = f"API request failed: {str(e)}"
+        print(f"❌ {error_msg}")
+        return {
+            'success': False,
+            'error': error_msg
+        }
+
+
+@celery.task(bind=True, max_retries=3, name='crawlic_tasks.describe_page')
+def describe_page_task(self, link):
+    """
+    Scrapes page content using Selenium in an isolated worker and then
+    analyzes its content with OpenAI Responses API
+    
+    Args:
+        link (str): URL to scrape
+        
+    Returns:
+        dict: Contains success status, content type, and content summary or error
+    """
+    try:
+        self.update_state(state='PROGRESS', meta={'status': 'Analyzing content'})
+        content = common.get_source_content(link)
+
+        # Analyze content using AI module
+        description = ai.describe_web_page_content(content)
+        
+        # Return structured response
+        return{
+            "success": True,
+            "summary": description.summary,
+            "type": description.type
+        }
+
+    except Exception as e:
+        error_msg = f"Analyzing failed: {str(e)}"
+        print(f"❌ {error_msg}")
+        return {
+            'success': False,
             'error': error_msg
         }
 
@@ -96,7 +193,6 @@ def find_contact_email_task(self, link):
         
         return {
             'success': True,
-            'link': link,
             'emails': emails
         }
         
@@ -105,13 +201,5 @@ def find_contact_email_task(self, link):
         print(f"❌ {error_msg}")
         return {
             'success': False,
-            'link': link,
             'error': error_msg
         }
-        
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except:
-                pass

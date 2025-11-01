@@ -70,32 +70,27 @@ def quit_driver(driver):
     # Explicitly delete the driver object
     del driver
 
-    kill_all_chrome_processes_linux()
+    kill_chrome_in_current_worker()
 
 
-def kill_all_chrome_processes_linux():
+def kill_chrome_in_current_worker():
     """
-    Kill all running Chrome/Chromedriver related processes in the container.
-    Useful for cleaning up after Selenium scraping sessions to prevent zombie
-    accumulation.
+    Kill all Chrome/Chromedriver processes started by the current Celery worker.
+    Does NOT touch other workers or system processes.
     """
+    current_pid = os.getpid()
     try:
-        # Get all running processes
-        result = subprocess.run(
-            ["ps", "aux"], capture_output=True, text=True
-        )
-        
-        for line in result.stdout.splitlines():
-            if any(proc in line.lower() for proc in ["chrome", "chromedriver"]):
-                parts = line.split()
-                pid = int(parts[1])  # PID is the second column
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                    print(f"🔪 Killed process {pid}: {line}")
-                except Exception as e:
-                    print(f"⚠️ Could not kill process {pid}: {e}")
+        current_process = psutil.Process(current_pid)
+        children = current_process.children(recursive=True)
+        for child in children:
+            try:
+                if "chrome" in child.name().lower() or "chromedriver" in child.name().lower():
+                    child.kill()
+                    print(f"🔪 Killed {child.name()} (PID {child.pid})")
+            except psutil.NoSuchProcess:
+                pass
     except Exception as e:
-        print(f"❌ Error while killing chrome processes: {e}")
+        print(f"⚠️ Error cleaning up Chrome for worker {current_pid}: {e}")
 
 
 # FUNCTIONS TO USE WHEN SCRAPING BEHIND A PROXY
@@ -160,10 +155,8 @@ def initiate_driver(proxy: bool, headless: bool, incognito: bool, disable_cookie
     Initializes and returns a SeleniumBase Chrome driver. Optionally uses a working proxy and headless mode.
     Kills any existing Chrome or chromedriver processes before starting.
     """
-    if OS_MACHINE == "Windows":
-        kill_all_chrome_processes_windows()
-    elif OS_MACHINE == "Linux":
-        kill_all_chrome_processes_linux()
+    
+    kill_chrome_in_current_worker()
     
     # time.sleep(5)
     pass
