@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
     command: python3 -m celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=1
     deploy:
-      replicas: 5
+      replicas: 1
     networks:
       - crawlic-internal
     volumes:

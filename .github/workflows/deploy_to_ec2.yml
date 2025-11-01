@@ -94,7 +94,7 @@ jobs:
           sudo docker-compose pull
           
           # Start services with the updated configuration
-          sudo docker-compose up -d --scale worker=5
+          sudo docker-compose up -d
           
           # Wait for containers to be healthy
           sleep 30
@@ -107,4 +107,4 @@ jobs:
           
           # Show worker count
           echo "Worker containers:"
-          sudo docker ps | grep crawlic_worker
+          sudo docker ps | grep worker
