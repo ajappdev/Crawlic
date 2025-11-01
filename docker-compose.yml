@@ -34,7 +34,7 @@ services:
     image: alae1ajbar/crawlic:latest
     container_name: crawlic_flask
     restart: unless-stopped
-    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 2 --timeout 30
+    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 1 --timeout 30
     networks:
       - crawlic-internal
     volumes:
