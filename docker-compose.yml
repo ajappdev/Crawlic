@@ -22,13 +22,19 @@ services:
       - crawlic-internal
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
 
   web:
     image: alae1ajbar/crawlic:latest
     container_name: crawlic_flask
     restart: unless-stopped
-    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 3 --timeout 30
+    command: gunicorn main:app --bind 0.0.0.0:9500 --workers 2 --timeout 30
     networks:
       - crawlic-internal
     volumes:
@@ -46,6 +52,8 @@ services:
     depends_on:
       - db
       - redis
+    mem_limit: 300m
+    memswap_limit: 300m
 
   worker:
     image: alae1ajbar/crawlic:latest
@@ -71,20 +79,22 @@ services:
     depends_on:
       - db
       - redis
+    mem_limit: 1g
+    memswap_limit: 1g
 
-  flower:
-    image: alae1ajbar/crawlic:latest
-    container_name: crawlic_flower
-    restart: unless-stopped
-    command: celery -A celery_app flower --port=5555
-    networks:
-      - crawlic-internal
-    environment:
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      - redis
-    ports:
-      - "5555:5555"
+  # flower:
+  #   image: alae1ajbar/crawlic:latest
+  #   container_name: crawlic_flower
+  #   restart: unless-stopped
+  #   command: celery -A celery_app flower --port=5555
+  #   networks:
+  #     - crawlic-internal
+  #   environment:
+  #     REDIS_URL: redis://redis:6379/0
+  #   depends_on:
+  #     - redis
+  #   ports:
+  #     - "5555:5555"
 
   frontend:
     image: alae1ajbar/crawlic-frontend:latest
@@ -92,6 +102,7 @@ services:
     restart: unless-stopped
     networks:
       - crawlic-internal
+    mem_limit: 100m
 
   nginx:
     image: nginx:alpine
@@ -115,6 +126,7 @@ services:
       - "traefik.http.routers.crawlic-secure.entrypoints=websecure"
       - "traefik.http.routers.crawlic-secure.tls.certresolver=letsencrypt"
       - "traefik.http.services.crawlic.loadbalancer.server.port=80"
+    mem_limit: 50m
 
 networks:
   crawlic-internal:
